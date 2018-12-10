@@ -7,8 +7,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
 import java.nio.charset.Charset;
-import java.util.List;
 import java.util.*;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -38,7 +38,6 @@ public class SimpleLog {
     public SimpleLog() {
         fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
         fileChooser.setMultiSelectionEnabled(true);
-        fileChooser.addChoosableFileFilter(new FileNameExtensionFilter("zip(*.zip)", "zip"));
         fileChooser.setFileFilter(new FileNameExtensionFilter("zip(*.zip)", "zip"));
 
         jf = new JFrame("SimpleLog 1.0");
@@ -264,10 +263,7 @@ public class SimpleLog {
                                     label_6.setText("开始解压:" + curFile.getName());
                                     String descDir = unZipFiles(curFile);
                                     label_6.setText("解压完毕，开始分析");
-                                    for (String tag : tags) {
-                                        label_6.setText("分析TAG:" + tag);
-                                        parseLog(tag, descDir);
-                                    }
+                                    parseLog(tags, descDir);
                                 }
                                 label_6.setText("分析完毕");
                                 JOptionPane.showMessageDialog(jf, "分析完毕");
@@ -371,9 +367,18 @@ public class SimpleLog {
         return descDir;
     }
 
-    public void parseLog(String tag, String descDir) throws IOException {
+    public void parseLog(String[] tags, String descDir) throws IOException {
         List<String> logs = new LinkedList<>();
-        String outLogPath = descDir + "\\" + tag + ".txt";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < tags.length; i++) {
+            if (i < tags.length - 1) {
+                sb.append(tags[i]).append("&");
+            } else {
+                sb.append(tags[i]);
+            }
+        }
+        String parseName = sb.toString();
+        String outLogPath = descDir + "\\" + parseName + ".txt";
 
         File parseFile = new File(outLogPath);
         if (!parseFile.exists()) {
@@ -382,7 +387,7 @@ public class SimpleLog {
             return;
         }
         List<File> fileList = new LinkedList<>();
-        getFileList(fileList, descDir, tag);
+        getFileList(fileList, descDir, parseName);
         int value = 0;
         for (File file : fileList) {
             BufferedReader reader = new BufferedReader(new FileReader(file));
@@ -391,8 +396,13 @@ public class SimpleLog {
             while ((tempString = reader.readLine()) != null) {
                 // 显示行号
                 String lowerTempString = tempString.toLowerCase();
-                if (lowerTempString.contains(tag.toLowerCase()) && !logs.contains(tempString)) {
-                    logs.add(tempString);
+                if (!logs.contains(tempString)) {
+                    for (String tag : tags) {
+                        if (lowerTempString.contains(tag.toLowerCase())) {
+                            logs.add(tempString);
+                            break;
+                        }
+                    }
                 }
             }
             value++;
