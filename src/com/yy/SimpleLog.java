@@ -1,6 +1,7 @@
 package com.yy;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileFilter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -27,14 +28,27 @@ public class SimpleLog {
     private JTextField srcZip;
     private JTextField mTagName;
 
-    JButton btn_srcZip, startParse;
+    JButton btn_srcZip, startParse, deleteOld;
     JFileChooser fileChooser = new JFileChooser();
 
     JProgressBar mProgress;
     JLabel label_6;
+    File[] chooseFiles;
 
     public SimpleLog() {
-        fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);//可选择目录
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);//可选择目录
+        fileChooser.setMultiSelectionEnabled(true);
+        fileChooser.setFileFilter(new FileFilter() {
+            @Override
+            public boolean accept(File f) {
+                return f.getName().endsWith("zip");
+            }
+
+            @Override
+            public String getDescription() {
+                return null;
+            }
+        });
 
         jf = new JFrame("SimpleLog 1.0");
         jf.setSize(750, 510);
@@ -111,6 +125,7 @@ public class SimpleLog {
         mTagName.setColumns(30);
 
         startParse = new JButton("开始分析");
+        deleteOld = new JButton("点击删除之前所有选中的zip和对应分析文件，慎点!!!");
 
         JLabel label_5 = new JLabel("进度:");
         mProgress = new JProgressBar();
@@ -121,6 +136,7 @@ public class SimpleLog {
 
         btn_srcZip.addActionListener(handle);
         startParse.addActionListener(handle);
+        deleteOld.addActionListener(handle);
 
         GroupLayout gl_centerP = new GroupLayout(centerP);
         gl_centerP.setHorizontalGroup(
@@ -134,7 +150,8 @@ public class SimpleLog {
                         .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.LEADING, false)
                                 .addComponent(srcZip)
                                 .addComponent(mTagName)
-                                .addComponent(mProgress))
+                                .addComponent(mProgress)
+                                .addComponent(deleteOld))
                         .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.LEADING)
                                 .addComponent(btn_srcZip)
@@ -157,6 +174,9 @@ public class SimpleLog {
                                 .addComponent(label_5)
                                 .addComponent(mProgress)
                                 .addComponent(label_6))
+                        .addGap(18)
+                        .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                .addComponent(deleteOld))
                         .addContainerGap(184, Short.MAX_VALUE)
         );
         centerP.setLayout(gl_centerP);
@@ -195,26 +215,51 @@ public class SimpleLog {
 
             }
 
-            if (e.getSource() == delLogItem) {// 删除日志
-
+            if (e.getSource() == deleteOld) {// 删除日志
+                if (chooseFiles == null || chooseFiles.length == 0) {
+                    JOptionPane.showMessageDialog(jf, "没有选中zip");
+                    return;
+                }
+                deleteOld.setEnabled(false);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        int i = 1;
+                        for (File delFile : chooseFiles) {
+                            label_6.setText("删除:" + delFile.getName());
+                            deleteFile(delFile);
+                            String path = delFile.getParent() + "/" + "simplelog_" + delFile.getName().substring(0, delFile.getName().lastIndexOf('.'));
+                            deleteFile(new File(path));
+                            int progressValue = (int) (i * 100.0 / chooseFiles.length);
+                            mProgress.setValue(progressValue);
+                            i++;
+                        }
+                        deleteOld.setEnabled(true);
+                        srcZip.setText("");
+                        chooseFiles = null;
+                        JOptionPane.showMessageDialog(jf, "删除成功");
+                    }
+                }).start();
             }
 
             if (e.getSource() == btn_srcZip) {//选择yao解缩的文件
                 fileChooser.showOpenDialog(jf);
-                File src2 = fileChooser.getSelectedFile();
-                if (src2.getName().endsWith("zip")) {
-                    srcZip.setText(src2.getAbsolutePath());
-                } else {
-                    srcZip.setText("");
-                    JOptionPane.showMessageDialog(jf, "请选择正确的压缩日志");
+                chooseFiles = fileChooser.getSelectedFiles();
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < chooseFiles.length; i++) {
+                    if (i < chooseFiles.length - 1) {
+                        sb.append(chooseFiles[i].getName()).append(",");
+                    } else {
+                        sb.append(chooseFiles[i].getName());
+                    }
                 }
+                srcZip.setText(sb.toString());
             }
             if (e.getSource() == startParse) {
                 if (srcZip.getText().equals("")) {
                     JOptionPane.showMessageDialog(jf, "请选择压缩日志");
                     return;
                 }
-                File src22 = new File(srcZip.getText());
                 try {
                     if (mTagName.getText().equals("")) {
                         JOptionPane.showMessageDialog(jf, "请输入Tag");
@@ -225,14 +270,15 @@ public class SimpleLog {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
-                            String descDir = null;
                             try {
-                                label_6.setText("开始解压");
-                                descDir = unZipFiles(src22);
-                                label_6.setText("解压完毕，开始分析");
-                                for (String tag : tags) {
-                                    label_6.setText("分析TAG:" + tag);
-                                    parseLog(tag, descDir);
+                                for (File curFile : chooseFiles) {
+                                    label_6.setText("开始解压:" + curFile.getName());
+                                    String descDir = unZipFiles(curFile);
+                                    label_6.setText("解压完毕，开始分析");
+                                    for (String tag : tags) {
+                                        label_6.setText("分析TAG:" + tag);
+                                        parseLog(tag, descDir);
+                                    }
                                 }
                                 label_6.setText("分析完毕");
                                 JOptionPane.showMessageDialog(jf, "分析完毕");
