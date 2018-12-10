@@ -1,14 +1,14 @@
 package com.yy;
 
 import javax.swing.*;
-import javax.swing.filechooser.FileFilter;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
 import java.nio.charset.Charset;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -36,19 +36,10 @@ public class SimpleLog {
     File[] chooseFiles;
 
     public SimpleLog() {
-        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);//可选择目录
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
         fileChooser.setMultiSelectionEnabled(true);
-        fileChooser.setFileFilter(new FileFilter() {
-            @Override
-            public boolean accept(File f) {
-                return f.getName().endsWith("zip");
-            }
-
-            @Override
-            public String getDescription() {
-                return null;
-            }
-        });
+        fileChooser.addChoosableFileFilter(new FileNameExtensionFilter("zip(*.zip)", "zip"));
+        fileChooser.setFileFilter(new FileNameExtensionFilter("zip(*.zip)", "zip"));
 
         jf = new JFrame("SimpleLog 1.0");
         jf.setSize(750, 510);
@@ -125,7 +116,7 @@ public class SimpleLog {
         mTagName.setColumns(30);
 
         startParse = new JButton("开始分析");
-        deleteOld = new JButton("点击删除之前所有选中的zip和对应分析文件，慎点!!!");
+        deleteOld = new JButton("点击删除选中文件，慎点!!!");
 
         JLabel label_5 = new JLabel("进度:");
         mProgress = new JProgressBar();
@@ -228,8 +219,6 @@ public class SimpleLog {
                         for (File delFile : chooseFiles) {
                             label_6.setText("删除:" + delFile.getName());
                             deleteFile(delFile);
-                            String path = delFile.getParent() + "/" + "simplelog_" + delFile.getName().substring(0, delFile.getName().lastIndexOf('.'));
-                            deleteFile(new File(path));
                             int progressValue = (int) (i * 100.0 / chooseFiles.length);
                             mProgress.setValue(progressValue);
                             i++;
@@ -310,7 +299,7 @@ public class SimpleLog {
         } else {//不为文件，则为文件夹
             String[] childFilePath = file.list();//获取文件夹下所有文件相对路径
             for (String path : childFilePath) {
-                File childFile = new File(file.getAbsoluteFile() + "/" + path);
+                File childFile = new File(file.getAbsoluteFile() + "\\" + path);
                 deleteFile(childFile);//递归，对每个都进行判断
             }
             System.out.println(file.getAbsoluteFile());
@@ -328,11 +317,11 @@ public class SimpleLog {
     public String unZipFiles(File zipFile) throws IOException {
 
         ZipFile zip = new ZipFile(zipFile, Charset.forName("GBK"));//解决中文文件夹乱码
-        String name = zip.getName().substring(zip.getName().lastIndexOf('/') + 1, zip.getName().lastIndexOf('.'));
+        String name = zip.getName().substring(zip.getName().lastIndexOf('\\') + 1, zip.getName().lastIndexOf('.'));
 
-        String descDir = zip.getName().substring(0, zip.getName().lastIndexOf("/") + 1) + "simplelog_" + name;
+        String descDir = zip.getName().substring(0, zip.getName().lastIndexOf("\\") + 1) + "simplelog_" + name;
 
-        File pathFile = new File(descDir + "/" + name);
+        File pathFile = new File(descDir + "\\" + name);
         if (!pathFile.exists()) {
             pathFile.mkdirs();
         }
@@ -343,7 +332,7 @@ public class SimpleLog {
             label_6.setText("解压:" + zipEntryName);
             InputStream in = zip.getInputStream(entry);
             BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-            String outPath = pathFile.getAbsolutePath() + "/" + zipEntryName;
+            String outPath = pathFile.getAbsolutePath() + "\\" + zipEntryName;
 
             // 判断路径是否存在,不存在则创建文件路径
             File outFile = new File(outPath);
@@ -384,7 +373,7 @@ public class SimpleLog {
 
     public void parseLog(String tag, String descDir) throws IOException {
         List<String> logs = new LinkedList<>();
-        String outLogPath = descDir + "/" + tag + ".txt";
+        String outLogPath = descDir + "\\" + tag + ".txt";
 
         File parseFile = new File(outLogPath);
         if (!parseFile.exists()) {
