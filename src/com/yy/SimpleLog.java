@@ -7,13 +7,13 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
 import java.nio.charset.Charset;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class SimpleLog {
-
+    private static final String EXE_SAVE_PATH = "D:/simplelog.txt";
     private JFrame jf = null;
     private JLabel leftInfo = new JLabel("状态栏:");
     private JLabel pathInfo = new JLabel("  ");
@@ -26,9 +26,9 @@ public class SimpleLog {
     ActionHandle handle = new ActionHandle();
 
     private JTextField srcZip;
-    private JTextField mTagName;
+    private JTextField mTagName, mEditName;
 
-    JButton btn_srcZip, startParse, deleteOld;
+    JButton btn_srcZip, startParse, deleteOld, chooseEdit;
     JFileChooser fileChooser = new JFileChooser();
 
     JProgressBar mProgress;
@@ -123,33 +123,48 @@ public class SimpleLog {
         mProgress.setMinimum(0);
         mProgress.setMaximum(100);
         label_6 = new JLabel("");
+        JLabel label_7 = new JLabel("编辑器:");
+
+        mEditName = new JTextField();
+        mEditName.setColumns(30);
+
+        chooseEdit = new JButton("选择");
 
         btn_srcZip.addActionListener(handle);
         startParse.addActionListener(handle);
         deleteOld.addActionListener(handle);
+        chooseEdit.addActionListener(handle);
 
         GroupLayout gl_centerP = new GroupLayout(centerP);
         gl_centerP.setHorizontalGroup(
                 gl_centerP.createSequentialGroup()
                         .addContainerGap()
                         .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.TRAILING)
+                                .addComponent(label_7)
                                 .addComponent(label_2)
                                 .addComponent(label_4)
                                 .addComponent(label_5))
                         .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.LEADING, false)
+                                .addComponent(mEditName)
                                 .addComponent(srcZip)
                                 .addComponent(mTagName)
                                 .addComponent(mProgress)
                                 .addComponent(deleteOld))
                         .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
                         .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                .addComponent(chooseEdit)
                                 .addComponent(btn_srcZip)
                                 .addComponent(startParse)
                                 .addComponent(label_6))
         );
         gl_centerP.setVerticalGroup(
                 gl_centerP.createSequentialGroup()
+                        .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                .addComponent(label_7)
+                                .addComponent(mEditName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                                .addComponent(chooseEdit))
+                        .addGap(18)
                         .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.LEADING)
                                 .addComponent(label_2)
                                 .addComponent(srcZip, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
@@ -170,7 +185,7 @@ public class SimpleLog {
                         .addContainerGap(184, Short.MAX_VALUE)
         );
         centerP.setLayout(gl_centerP);
-
+        mEditName.setText(getEditPath());
         jf.setVisible(true);
     }
 
@@ -205,6 +220,21 @@ public class SimpleLog {
 
             }
 
+            if (e.getSource() == chooseEdit) {
+                fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+                fileChooser.setMultiSelectionEnabled(false);
+                fileChooser.setFileFilter(new FileNameExtensionFilter("exe(*.exe)", "exe"));
+                fileChooser.showOpenDialog(jf);
+                File chooseFile = fileChooser.getSelectedFile();
+                if (chooseFile == null || chooseFile.getAbsolutePath() == null || !chooseFile.getName().endsWith("exe")) {
+                    mEditName.setText("");
+                    JOptionPane.showMessageDialog(jf, "请选择编辑器");
+                } else {
+                    mEditName.setText(chooseFile.getAbsolutePath());
+                    saveEditPath(chooseFile.getAbsolutePath());
+                }
+            }
+
             if (e.getSource() == deleteOld) {// 删除日志
                 if (chooseFiles == null || chooseFiles.length == 0) {
                     JOptionPane.showMessageDialog(jf, "没有选中zip");
@@ -231,6 +261,9 @@ public class SimpleLog {
             }
 
             if (e.getSource() == btn_srcZip) {//选择yao解缩的文件
+                fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+                fileChooser.setMultiSelectionEnabled(true);
+                fileChooser.setFileFilter(new FileNameExtensionFilter("zip(*.zip)", "zip"));
                 fileChooser.showOpenDialog(jf);
                 chooseFiles = fileChooser.getSelectedFiles();
                 StringBuilder sb = new StringBuilder();
@@ -263,10 +296,12 @@ public class SimpleLog {
                                     label_6.setText("开始解压:" + curFile.getName());
                                     String descDir = unZipFiles(curFile);
                                     label_6.setText("解压完毕，开始分析");
-                                    parseLog(tags, descDir);
+                                    String parseLog = parseLog(tags, descDir);
+                                    if (mEditName.getText().endsWith("exe") && parseLog.endsWith("txt")) {
+                                        startShow(mEditName.getText(), parseLog);
+                                    }
                                 }
                                 label_6.setText("分析完毕");
-                                JOptionPane.showMessageDialog(jf, "分析完毕");
                             } catch (IOException e1) {
                                 e1.printStackTrace();
                                 JOptionPane.showMessageDialog(jf, "解压Error" + e1.getMessage());
@@ -280,6 +315,43 @@ public class SimpleLog {
                     startParse.setEnabled(true);
                 }
             }
+        }
+    }
+
+    public static String getEditPath() {
+        String line = "";
+        try {
+            BufferedReader in = new BufferedReader(new FileReader(EXE_SAVE_PATH));
+            line = in.readLine();
+            in.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return line;
+    }
+
+    public static void saveEditPath(String path) {
+        try {
+            File file = new File(EXE_SAVE_PATH);
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+            BufferedWriter out = new BufferedWriter(new FileWriter(EXE_SAVE_PATH));
+            out.write(path);
+            out.newLine();
+            out.close();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    private void startShow(String path, String file) {
+        Runtime run = Runtime.getRuntime();
+        try {
+            run.exec(path + " " + file);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -367,9 +439,10 @@ public class SimpleLog {
         return descDir;
     }
 
-    public void parseLog(String[] tags, String descDir) throws IOException {
+    public String parseLog(String[] tags, String descDir) throws IOException {
         List<String> logs = new LinkedList<>();
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(descDir.substring(descDir.lastIndexOf("_") + 1));
+        sb.append("_");
         for (int i = 0; i < tags.length; i++) {
             if (i < tags.length - 1) {
                 sb.append(tags[i]).append("&");
@@ -384,7 +457,7 @@ public class SimpleLog {
         if (!parseFile.exists()) {
             parseFile.createNewFile();
         } else {
-            return;
+            return outLogPath;
         }
         List<File> fileList = new LinkedList<>();
         getFileList(fileList, descDir, parseName);
@@ -423,6 +496,7 @@ public class SimpleLog {
             writer.newLine();
         }
         writer.close();
+        return outLogPath;
     }
 
     public static void getFileList(List<File> filelist, String strPath, String tag) {
