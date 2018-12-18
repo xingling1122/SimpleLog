@@ -36,7 +36,7 @@ public class SimpleLog {
     File[] chooseFiles;
 
     public SimpleLog() {
-        fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
         fileChooser.setMultiSelectionEnabled(true);
         fileChooser.setFileFilter(new FileNameExtensionFilter("zip(*.zip)", "zip"));
 
@@ -115,7 +115,7 @@ public class SimpleLog {
         mTagName.setColumns(30);
 
         startParse = new JButton("开始分析");
-        deleteOld = new JButton("点击删除选中文件，慎点!!!");
+        deleteOld = new JButton("删除分析后文件(包括zip)!!!");
 
         JLabel label_5 = new JLabel("进度:");
         mProgress = new JProgressBar();
@@ -248,6 +248,7 @@ public class SimpleLog {
                         for (File delFile : chooseFiles) {
                             label_6.setText("删除:" + delFile.getName());
                             deleteFile(delFile);
+                            deleteFile(new File(delFile.getParent(), "simplelog_" + delFile.getName().substring(0, delFile.getName().lastIndexOf(".zip"))));
                             int progressValue = (int) (i * 100.0 / chooseFiles.length);
                             mProgress.setValue(progressValue);
                             i++;
@@ -261,7 +262,7 @@ public class SimpleLog {
             }
 
             if (e.getSource() == btn_srcZip) {//选择yao解缩的文件
-                fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+                fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
                 fileChooser.setMultiSelectionEnabled(true);
                 fileChooser.setFileFilter(new FileNameExtensionFilter("zip(*.zip)", "zip"));
                 fileChooser.showOpenDialog(jf);
@@ -364,7 +365,7 @@ public class SimpleLog {
         if (file.isFile()) {//判断是否为文件，是，则删除
             System.out.println(file.getAbsoluteFile());//打印路径
             file.delete();
-        } else {//不为文件，则为文件夹
+        } else if (file.isDirectory()) {//不为文件，则为文件夹
             String[] childFilePath = file.list();//获取文件夹下所有文件相对路径
             for (String path : childFilePath) {
                 File childFile = new File(file.getAbsoluteFile() + "\\" + path);
