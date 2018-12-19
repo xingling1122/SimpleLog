@@ -35,6 +35,8 @@ public class SimpleLog {
     JLabel label_6;
     File[] chooseFiles;
 
+    JCheckBox mCheckChoosAll;
+
     public SimpleLog() {
         fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
         fileChooser.setMultiSelectionEnabled(true);
@@ -128,6 +130,9 @@ public class SimpleLog {
         mEditName = new JTextField();
         mEditName.setColumns(30);
 
+        JLabel label_8 = new JLabel("加强分析:");
+        mCheckChoosAll = new JCheckBox();
+
         chooseEdit = new JButton("选择");
 
         btn_srcZip.addActionListener(handle);
@@ -155,8 +160,13 @@ public class SimpleLog {
                         .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.LEADING)
                                 .addComponent(chooseEdit)
                                 .addComponent(btn_srcZip)
-                                .addComponent(startParse)
+                                .addComponent(label_8)
                                 .addComponent(label_6))
+                        .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                .addComponent(mCheckChoosAll))
+                        .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                .addComponent(startParse))
         );
         gl_centerP.setVerticalGroup(
                 gl_centerP.createSequentialGroup()
@@ -173,6 +183,8 @@ public class SimpleLog {
                         .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.BASELINE)
                                 .addComponent(label_4)
                                 .addComponent(mTagName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                                .addComponent(label_8)
+                                .addComponent(mCheckChoosAll, GroupLayout.Alignment.CENTER)
                                 .addComponent(startParse))
                         .addGap(18)
                         .addGroup(gl_centerP.createParallelGroup(GroupLayout.Alignment.BASELINE)
@@ -297,7 +309,7 @@ public class SimpleLog {
                                     label_6.setText("开始解压:" + curFile.getName());
                                     String descDir = unZipFiles(curFile);
                                     label_6.setText("解压完毕，开始分析");
-                                    String parseLog = parseLog(tags, descDir);
+                                    String parseLog = parseLog(tags, descDir, mCheckChoosAll.isSelected());
                                     if (mEditName.getText().endsWith("exe") && parseLog.endsWith("txt")) {
                                         startShow(mEditName.getText(), parseLog);
                                     }
@@ -440,7 +452,7 @@ public class SimpleLog {
         return descDir;
     }
 
-    public String parseLog(String[] tags, String descDir) throws IOException {
+    public String parseLog(String[] tags, String descDir, boolean chooseAll) throws IOException {
         List<String> logs = new LinkedList<>();
         StringBuilder sb = new StringBuilder(descDir.substring(descDir.lastIndexOf("_") + 1));
         sb.append("_");
@@ -457,8 +469,6 @@ public class SimpleLog {
         File parseFile = new File(outLogPath);
         if (!parseFile.exists()) {
             parseFile.createNewFile();
-        } else {
-            return outLogPath;
         }
         List<File> fileList = new LinkedList<>();
         getFileList(fileList, descDir, parseName);
@@ -491,12 +501,48 @@ public class SimpleLog {
                 return o1.compareTo(o2);
             }
         });
-        BufferedWriter writer = new BufferedWriter(new FileWriter(outLogPath));
-        for (String log : logs) {
-            writer.write(log);
-            writer.newLine();
+        if (chooseAll && logs.size() > 2) {
+            value = 0;
+            String firstLine = logs.get(0);
+            String lastLine = logs.get(logs.size() - 1);
+            boolean startBegin = false;
+            BufferedWriter writer = new BufferedWriter(new FileWriter(outLogPath, false));
+            for (File file : fileList) {
+                BufferedReader reader = new BufferedReader(new FileReader(file));
+                String tempString;
+                // 一次读入一行，直到读入null为文件结束
+                while ((tempString = reader.readLine()) != null) {
+                    // 显示行号
+                    if (tempString.equals(firstLine)) {
+                        startBegin = true;
+                        writer.write(tempString);
+                        writer.newLine();
+                    } else if (tempString.equals(lastLine)) {
+                        startBegin = false;
+                        writer.write(tempString);
+                        writer.newLine();
+                    } else {
+                        if (startBegin) {
+                            writer.write(tempString);
+                            writer.newLine();
+                        }
+                    }
+                }
+                value++;
+                float progress = (float) (value * 1.0 / fileList.size());
+                int progressValue = (int) (progress * 100);
+                mProgress.setValue(progressValue);
+                reader.close();
+            }
+            writer.close();
+        } else {
+            BufferedWriter writer = new BufferedWriter(new FileWriter(outLogPath, false));
+            for (String log : logs) {
+                writer.write(log);
+                writer.newLine();
+            }
+            writer.close();
         }
-        writer.close();
         return outLogPath;
     }
 
